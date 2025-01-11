@@ -30,12 +30,12 @@ Ensure Node.js and npm are installed.
 ### Step-by-step Guide
 1. **Clone the repository**:
     ```bash
-    git clone https://github.com/vikas-kashyap97/CSV-Query.git
+    git clone https://github.com/vikas-kashyap97/csv-query-interface.git
     ```
 
 2. **Navigate to the project directory**:
     ```bash
-    cd CSV-Query
+    cd csv-query-interface
     ```
 
 3. **Install dependencies**:
@@ -97,7 +97,7 @@ Ensure Node.js and npm are installed.
 Contributions are welcome! If you have suggestions or improvements, feel free to open a pull request or create an issue.
 
 ## GitHub Repository
-👉 [CSV Query App GitHub Repo](https://github.com/vikas-kashyap97/CSV-Query.git)  
+👉 [CSV Query App GitHub Repo](https://github.com/vikas-kashyap97/csv-query-interface.git)  
 
 ⭐ **If you like this project, give it a star! Your support means a lot!**
 
