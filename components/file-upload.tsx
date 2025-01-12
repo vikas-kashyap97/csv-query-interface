@@ -23,7 +23,36 @@ export function FileUpload({ onFileUploaded, onFileSelected }: FileUploadProps) 
 
   useEffect(() => {
     fetchFiles()
+    // Fetch the example CSV file when component mounts
+    fetchExampleCSV()
   }, [])
+
+  const fetchExampleCSV = async () => {
+    try {
+      const response = await fetch('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/query_results%20(1)-u9VN8wvBi38uLqMggEuPrDPekZFOqC.csv')
+      const text = await response.text()
+      
+      Papa.parse(text, {
+        header: true,
+        complete: (results) => {
+          if (results.data && results.data.length > 0) {
+            // Create a formatted string for the ResultsTable
+            const headers = Object.keys(results.data[0]).join('\t')
+            const rows = results.data.map((row: any) => Object.values(row).join('\t')).join('\n')
+            const formattedData = `${headers}\n${rows}`
+            
+            // Call onFileUploaded with the parsed data
+            onFileUploaded('example', formattedData)
+          }
+        },
+        error: (error) => {
+          console.error('Error parsing CSV:', error)
+        }
+      })
+    } catch (error) {
+      console.error('Error fetching CSV:', error)
+    }
+  }
 
   const fetchFiles = async () => {
     const { data, error } = await supabase
@@ -44,6 +73,11 @@ export function FileUpload({ onFileUploaded, onFileSelected }: FileUploadProps) 
     setIsUploading(true)
     setUploadProgress(0)
 
+    const simulateProgress = () => {
+      setUploadProgress(prev => Math.min(prev + 10, 90))
+    }
+    const progressInterval = setInterval(simulateProgress, 500)
+
     try {
       // Parse CSV file
       const results = await new Promise<Papa.ParseResult<any>>((resolve, reject) => {
@@ -54,13 +88,17 @@ export function FileUpload({ onFileUploaded, onFileSelected }: FileUploadProps) 
         })
       })
 
+      // Format the data for ResultsTable
+      const headers = Object.keys(results.data[0]).join('\t')
+      const rows = results.data.map(row => Object.values(row).join('\t')).join('\n')
+      const formattedData = `${headers}\n${rows}`
+
       // Upload file to Supabase Storage
       const fileExt = file.name.split('.').pop()
       const fileName = `${Math.random()}.${fileExt}`
       const { error: uploadError, data } = await supabase.storage
         .from('csv-files')
-        .upload(fileName, file, {
-        })
+        .upload(fileName, file)
 
       if (uploadError) throw uploadError
 
@@ -72,11 +110,14 @@ export function FileUpload({ onFileUploaded, onFileSelected }: FileUploadProps) 
         mime_type: file.type,
         status: 'ready',
         column_names: results.meta.fields,
-        sample_data: results.data.slice(0, 100), // Store first 100 rows as sample
+        sample_data: results.data.slice(0, 100),
         row_count: results.data.length,
       }).select().single()
 
       if (dbError) throw dbError
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
 
       toast({
         title: 'File uploaded successfully',
@@ -86,9 +127,9 @@ export function FileUpload({ onFileUploaded, onFileSelected }: FileUploadProps) 
       // Fetch updated file list
       await fetchFiles()
 
-      // Call the callback with the new file data
+      // Call the callback with the formatted data
       if (fileData) {
-        onFileUploaded(fileData.id, results.data)
+        onFileUploaded(fileData.id, formattedData)
       }
     } catch (error) {
       console.error('Upload error:', error)
@@ -98,6 +139,7 @@ export function FileUpload({ onFileUploaded, onFileSelected }: FileUploadProps) 
         variant: 'destructive',
       })
     } finally {
+      clearInterval(progressInterval)
       setIsUploading(false)
       setUploadProgress(0)
     }
@@ -141,41 +183,17 @@ export function FileUpload({ onFileUploaded, onFileSelected }: FileUploadProps) 
     }
   }
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { x: -20, opacity: 0 },
-    visible: {
-      x: 0,
-      opacity: 1,
-      transition: {
-        type: 'spring',
-        stiffness: 100,
-        damping: 10,
-      },
-    },
-  }
-
   return (
     <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       className="space-y-4"
     >
-      <motion.div variants={itemVariants} className="flex items-center gap-4">
+      <motion.div className="flex items-center gap-4">
         <Button
           variant="outline"
           disabled={isUploading}
-          className="relative bg-white text-purple-600 border-purple-600 "
+          className="relative bg-white text-purple-600 border-purple-600"
           onClick={() => document.getElementById('file-upload')?.click()}
         >
           <Upload className="mr-2 h-4 w-4" />
@@ -190,29 +208,31 @@ export function FileUpload({ onFileUploaded, onFileSelected }: FileUploadProps) 
           />
         </Button>
         {isUploading && (
-          <Progress value={uploadProgress} className="w-[200px]" />
+          <div className="w-[200px]">
+            <Progress value={uploadProgress} className="h-2" />
+          </div>
         )}
       </motion.div>
       <AnimatePresence>
         {files.length > 0 && (
           <motion.div
-            variants={itemVariants}
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            className="bg-white/70 backdrop-blur-sm p-4 rounded-md"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-white shadow-sm rounded-lg p-4"
           >
             <h3 className="text-lg font-semibold mb-2 text-gray-900">Uploaded Files:</h3>
             <ul className="space-y-2">
               {files.map((file) => (
                 <motion.li
                   key={file.id}
-                  variants={itemVariants}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   className="flex items-center justify-between"
                 >
                   <button
                     onClick={() => handleFileSelect(file.id)}
-                    className="text-left hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 text-gray-900"
+                    className="text-left hover:text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 text-gray-900"
                   >
                     {file.original_name}
                     <span className="text-sm text-gray-600 ml-2">
@@ -223,7 +243,7 @@ export function FileUpload({ onFileUploaded, onFileSelected }: FileUploadProps) 
                     variant="ghost"
                     size="sm"
                     onClick={() => handleFileDelete(file.id)}
-                    className="text-gray-600 hover:text-white"
+                    className="text-gray-600 hover:text-red-600"
                   >
                     <X className="h-4 w-4" />
                   </Button>

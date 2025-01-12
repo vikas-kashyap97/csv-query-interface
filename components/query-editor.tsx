@@ -36,7 +36,21 @@ export function QueryEditor({ fileId, onQueryResult }: QueryEditorProps) {
       if (!response.ok) throw new Error('Query failed')
       
       const result = await response.json()
-      onQueryResult(result.answer)
+      
+      // Format the response as tab-separated values
+      if (typeof result.answer === 'string' && result.answer.includes('|')) {
+        // If the response is already in a tabular format with |, convert it to TSV
+        const lines = result.answer.split('\n').map(line => 
+          line.split('|')
+            .map(cell => cell.trim())
+            .filter(cell => cell) // Remove empty cells
+            .join('\t')
+        ).filter(line => line) // Remove empty lines
+        onQueryResult(lines.join('\n'))
+      } else {
+        // If it's a regular string response, wrap it in a single-column table
+        onQueryResult(`Response\n${result.answer}`)
+      }
 
       const endTime = performance.now()
       const executionTime = Math.round(endTime - startTime)
@@ -57,54 +71,26 @@ export function QueryEditor({ fileId, onQueryResult }: QueryEditorProps) {
     }
   }
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        type: 'spring',
-        stiffness: 100,
-        damping: 10,
-      },
-    },
-  }
-
   return (
     <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
     >
-      <motion.div variants={itemVariants}>
-        <Textarea
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Enter your query in natural language..."
-          className="min-h-[100px] font-mono bg-white/50 text-black border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-        />
-      </motion.div>
-      <motion.div variants={itemVariants}>
-        <Button 
-          onClick={handleSubmit} 
-          disabled={isLoading || !query.trim()}
-          className="bg-gradient-to-r from-purple-600 via-pink-500 to-yellow-500 hover:opacity-90 transition-opacity text-white"
-        >
-          <Play className="mr-2 h-4 w-4" />
-          Run Query
-        </Button>
-      </motion.div>
+      <Textarea
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Enter your query in natural language..."
+        className="min-h-[100px] font-mono bg-white/50 text-black border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+      />
+      <Button 
+        onClick={handleSubmit} 
+        disabled={isLoading || !query.trim()}
+        className="bg-gradient-to-r from-purple-600 via-pink-500 to-yellow-500 hover:opacity-90 transition-opacity text-white"
+      >
+        <Play className="mr-2 h-4 w-4" />
+        Run Query
+      </Button>
     </motion.div>
   )
 }
